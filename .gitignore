@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Virtual Environments
+venv/
+env/
+*.env
+.env/
+
+# IDE specific files
+.idea/
+.vscode/
+
+# Project specific
+/data/
+/secrets/
+/flagged/
+/snapshots/
+/images/
