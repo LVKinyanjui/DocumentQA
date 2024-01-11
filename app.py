@@ -17,6 +17,6 @@ with gr.Blocks() as iface:
     file.change(fn=embed_upsert, inputs=file, outputs=[feedback, namespace])
 
 # %%
-iface.launch()
+iface.launch(share=True)
 
 
