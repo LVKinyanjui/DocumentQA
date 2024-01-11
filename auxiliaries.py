@@ -13,8 +13,10 @@ import time
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-palm_key = api_key=os.getenv("PALM_API_KEY")
-pinecone_key = os.getenv("PINECONE_API_KEY")
+palm_key = 'AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
+# os.getenv("PALM_API_KEY")
+pinecone_key = '2face206-ee83-4167-bc38-c6f319ebb8c6'
+# os.getenv("PINECONE_API_KEY")
 
 palm.configure(api_key=palm_key)
 
