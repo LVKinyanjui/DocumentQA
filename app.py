@@ -9,7 +9,7 @@ with gr.Blocks() as iface:
     gr.ChatInterface(
         fn=retrieve, 
         additional_inputs=[namespace]
-    ).launch()
+    )
 
     file = gr.File()
     feedback = gr.Markdown()
