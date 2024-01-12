@@ -2,6 +2,7 @@ import os
 import re
 import json
 import uuid
+import time
 import requests
 import itertools
 from tqdm import tqdm
@@ -83,7 +84,15 @@ def embed_upsert(filepath, verbose=False):
         environment='gcp-starter'
         )
     
-    index = pinecone.Index(pinecone.list_indexes()[0]) 
+    # Ensure index available (Any)
+    indexes = pinecone.list_indexes()
+    if len(indexes) > 0:
+        index_name = indexes[0]
+    else:
+         pinecone.create_index('general', dimension=768)
+
+    index = pinecone.Index(index_name)                          # Initialize index
+    index.delete(delete_all=True, namespace=namespace)          # Delete namespace if exists
 
     for document in tqdm(documents):
 
@@ -97,12 +106,12 @@ def embed_upsert(filepath, verbose=False):
             }
         }]
 
-        index.upsert(vectors=vector, namespace=namespace)
+        index.upsert(vectors=vector, namespace=namespace)       # Upsert to target namespace
 
         if verbose:
             print(index.describe_index_stats())
     
-    return ["File embedded and upserted succesfully!", namespace] # Return to multiple components
+    return ["File embedded and upserted succesfully!", namespace] # Return to multiple gradio components
 
 
 def retrieve(query, history, namespace='', verbose=False):
@@ -111,8 +120,25 @@ def retrieve(query, history, namespace='', verbose=False):
                 environment='gcp-starter'
                 )
 
-        index = pinecone.GRPCIndex(pinecone.list_indexes()[0])
-        index.describe_index_stats()
+        # Ensure index available (Any)
+        indexes = pinecone.list_indexes()
+        if len(indexes) > 0:
+            index_name = indexes[0]
+            index = pinecone.GRPCIndex(index_name)
+        else:
+            raise NameError(f"The index {index_name} does not exist. Please make sure the index is present before attempting to connect to it.") 
+
+        # Check for availability of vectors
+        stats = index.describe_index_stats()
+        vector_count = stats['namespaces'][namespace]['vector_count']
+
+        for retry in range(3):
+            if vector_count > 0:
+                # Index namespace populated; safe to begin querying
+                break
+            else:
+                time.sleep(10)
+                continue
 
         xq = palm.generate_embeddings(model='models/embedding-gecko-001', text=query)
         res = index.query(xq['embedding'], top_k=5, include_metadata=True, namespace=namespace)
