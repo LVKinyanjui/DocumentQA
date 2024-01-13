@@ -66,7 +66,7 @@ def batch_upsert(iterable, batch_size=100):
         chunk = tuple(itertools.islice(it, batch_size))
 
 
-def embed_upsert(filepath, verbose=True):
+def embed_upsert(filepath, verbose=False):
     """
     Takes a read-in file gets its embeddings and upserts the embeddings to pinecone vector database
     """
@@ -121,7 +121,7 @@ def embed_upsert(filepath, verbose=True):
     return ["File embedded and upserted succesfully!", namespace] # Return to multiple gradio components
 
 
-def retrieve(query, history, namespace='', verbose=False):
+def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
         pinecone.init(
                 api_key=pinecone_key,
                 environment='gcp-starter'
@@ -176,7 +176,7 @@ def retrieve(query, history, namespace='', verbose=False):
 
                 {xq}
         """
-        res = palm.chat(prompt=message)
+        res = palm.chat(prompt=message, temperature=temperature)
 
         if verbose:
                 print(context)
