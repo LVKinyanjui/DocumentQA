@@ -61,7 +61,7 @@ orjson==3.9.10
 packaging==23.2
 pandas==2.1.4
 pillow==10.2.0
-pinecone-client==2.2.4
+pinecone-client @ git+https://git@github.com/pinecone-io/pinecone-python-client.git@14b81e88493ef3fdea5ce95baf1b5249c518793f
 proto-plus==1.23.0
 protobuf==3.20.3
 pyasn1==0.5.1
