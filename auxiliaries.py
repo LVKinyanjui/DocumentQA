@@ -24,12 +24,11 @@ palm.configure(api_key=palm_key)
 def read_split_pdf(file, chunk_size=512, chunk_overlap=0):
     start_time = time.time()
 
-    loader = PyPDFLoader(file)
-    # pages = loader.load_and_split()
-
-    # contents = [page.page_content for page in pages]
-    # text = ' '.join(contents)
-    # return text
+    try:
+        loader = PyPDFLoader(file)
+    except TypeError:
+         # Handle soft error on document upload.
+         pass
 
     documents = loader.load()
 
