@@ -130,7 +130,7 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
         indexes = pinecone.list_indexes()
         if len(indexes) > 0:
             index_name = indexes[0]
-            index = pinecone.Index(index_name)
+            index = pinecone.GRPCIndex(index_name)
         else:
             raise NameError(f"The index {index_name} does not exist. Please make sure the index is present before attempting to connect to it.") 
 
