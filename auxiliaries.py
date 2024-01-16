@@ -19,6 +19,11 @@ palm_key = 'AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
 pinecone_key = '2face206-ee83-4167-bc38-c6f319ebb8c6'
 # os.getenv("PINECONE_API_KEY")
 
+pinecone.init(
+    api_key=pinecone_key,
+    environment='gcp-starter'
+    )
+
 palm.configure(api_key=palm_key)
 
 def read_split_pdf(file, chunk_size=512, chunk_overlap=0):
@@ -78,11 +83,6 @@ def embed_upsert(filepath, verbose=False):
         return filename
 
     namespace = clean_filename(filepath)
-
-    pinecone.init(
-        api_key=pinecone_key,
-        environment='gcp-starter'
-        )
     
     # Ensure index available (Any)
     indexes = pinecone.list_indexes()
@@ -121,10 +121,6 @@ def embed_upsert(filepath, verbose=False):
 
 
 def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
-        pinecone.init(
-                api_key=pinecone_key,
-                environment='gcp-starter'
-                )
 
         # Ensure index available (Any)
         indexes = pinecone.list_indexes()
