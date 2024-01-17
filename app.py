@@ -5,8 +5,9 @@ from auxiliaries import embed_upsert, retrieve
 # %%
 with gr.Blocks() as iface:
     namespace = gr.Textbox(
-        label="Document Namespace", 
-        placeholder= "Enter the document's pinecone namespace")
+        label="Namespace", 
+        placeholder="Display or Enter Pinecone Document Namespace",
+        visible=False)
 
     gr.ChatInterface(
         fn=retrieve, 
@@ -19,6 +20,9 @@ with gr.Blocks() as iface:
     file.change(fn=embed_upsert, inputs=file, outputs=[feedback, namespace])
 
 # %%
-iface.launch(share=True)
+iface.launch()
+
+# %%
+
 
 
