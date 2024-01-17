@@ -11,7 +11,7 @@ from pinecone import Pinecone
 import google.generativeai as genai
 
 import time
-from langchain.document_loaders import PyPDFLoader
+from langchain.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 genai_key = 'AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
@@ -26,7 +26,7 @@ genai.configure(api_key=genai_key)
 def read_split_pdf(file, chunk_size=512, chunk_overlap=0):
     start_time = time.time()
 
-    loader = PyPDFLoader(file)
+    loader = PyMuPDFLoader(file)
     documents = loader.load()
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
@@ -157,6 +157,8 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
                 Whenever you do not have enough information to summarize say explicitly:
                 "I do not have enough information"
                 Otherwise provide a well annotated summary \
+                If the context section (usually enclosed in triple backticks ```) is empty say: \
+                "No Documents were provided to summarize" \
                 If there are points use numbered or bulleted lists \
                 Highlight important points \
                 Provide an introduction and conclusion whenever necessary \
@@ -167,7 +169,9 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
         message = f"""
                 {prompt_template}
 
+                ```
                 {context}
+                ```
 
                 Given the above context, answer the following question to the best of your ability: \
 
