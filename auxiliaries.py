@@ -7,7 +7,7 @@ import requests
 import itertools
 from tqdm import tqdm
 
-import pinecone
+from pinecone import Pinecone
 import google.generativeai as palm
 
 import time
@@ -19,22 +19,14 @@ palm_key = 'AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
 pinecone_key = '2face206-ee83-4167-bc38-c6f319ebb8c6'
 # os.getenv("PINECONE_API_KEY")
 
-pinecone.init(
-    api_key=pinecone_key,
-    environment='gcp-starter'
-    )
+pc = Pinecone(api_key=pinecone_key)
 
 palm.configure(api_key=palm_key)
 
 def read_split_pdf(file, chunk_size=512, chunk_overlap=0):
     start_time = time.time()
 
-    try:
-        loader = PyPDFLoader(file)
-    except TypeError:
-         # Handle soft error on document upload.
-         pass
-
+    loader = PyPDFLoader(file)
     documents = loader.load()
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
@@ -85,13 +77,13 @@ def embed_upsert(filepath, verbose=False):
     namespace = clean_filename(filepath)
     
     # Ensure index available (Any)
-    indexes = pinecone.list_indexes()
+    indexes = pc.list_indexes()
     if len(indexes) > 0:
-        index_name = indexes[0]
+        index_name = indexes[0]['name']
     else:
-         pinecone.create_index('general', dimension=768)
+         pc.create_index('general', dimension=768)
 
-    index = pinecone.Index(index_name)                          # Initialize index
+    index = pc.Index(index_name)                          # Initialize index
 
     # Check if Namespace already availabe, if so terminate.
     stats = index.describe_index_stats()
@@ -123,27 +115,37 @@ def embed_upsert(filepath, verbose=False):
 def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
 
         # Ensure index available (Any)
-        indexes = pinecone.list_indexes()
+        indexes = pc.list_indexes()
         if len(indexes) > 0:
-            index_name = indexes[0]
-            index = pinecone.GRPCIndex(index_name)
+            index_name = indexes[0]['name']
+            index = pc.Index(index_name)
         else:
             raise NameError(f"The index {index_name} does not exist. Please make sure the index is present before attempting to connect to it.") 
 
         # Check for availability of vectors
-        stats = index.describe_index_stats()
-        vector_count = stats['namespaces'][namespace]['vector_count']
+        try:
+            stats = index.describe_index_stats()
+            vector_count = stats['namespaces'][namespace]['vector_count']
 
-        for retry in range(3):
-            if vector_count > 0:
-                # Index namespace populated; safe to begin querying
-                break
-            else:
-                time.sleep(10)
-                continue
+            for retry in range(3):
+                if vector_count > 0:
+                    # Index namespace populated; safe to begin querying
+                    break
+                else:
+                    time.sleep(10)
+                    continue
+        except KeyError:
+             print(f"Unable to retrieve index stats for {namespace}")
 
         xq = palm.generate_embeddings(model='models/embedding-gecko-001', text=query)
-        res = index.query(xq['embedding'], top_k=5, include_metadata=True, namespace=namespace)
+
+        res = index.query(
+             top_k=5,
+             vector=xq['embedding'], 
+             include_metadata=True, 
+             namespace=namespace
+             )
+        
         context = '\n\n'.join([match['metadata']['text'] for match in res['matches']])
 
 
