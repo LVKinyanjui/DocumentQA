@@ -1,7 +1,7 @@
 
-# Project Name
+# DocumentQA
 
-Brief description of your project.
+This project provides a custom chatbot for interacting with PDF files. It allows you to do question and answer with your documents while providing useful summaries.
 
 ## Getting Started
 
@@ -9,7 +9,7 @@ These instructions will help you set up and run the project on your local machin
 
 ### Prerequisites
 
-- [Python](https://www.python.org/downloads/) (version X.X.X)
+- [Python](https://www.python.org/downloads/) (version 3.10.4)
 - [Virtualenv](https://virtualenv.pypa.io/en/stable/) (optional but recommended)
 
 ### Installation
@@ -17,13 +17,13 @@ These instructions will help you set up and run the project on your local machin
 1. Clone the repository to your local machine:
 
     ```bash
-    git clone https://github.com/your-username/your-repo.git
+    git clone https://github.com/LVKinyanjui/DocumentQA
     ```
 
 2. Navigate to the project directory:
 
     ```bash
-    cd your-repo
+    cd DocumentQA
     ```
 
 3. Create a virtual environment (optional but recommended):
