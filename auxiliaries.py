@@ -8,20 +8,20 @@ import itertools
 from tqdm import tqdm
 
 from pinecone import Pinecone
-import google.generativeai as palm
+import google.generativeai as genai
 
 import time
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-palm_key = 'AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
-# os.getenv("PALM_API_KEY")
+genai_key = 'AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
+# os.getenv("genai_API_KEY")
 pinecone_key = '2face206-ee83-4167-bc38-c6f319ebb8c6'
 # os.getenv("PINECONE_API_KEY")
 
 pc = Pinecone(api_key=pinecone_key)
 
-palm.configure(api_key=palm_key)
+genai.configure(api_key=genai_key)
 
 def read_split_pdf(file, chunk_size=512, chunk_overlap=0):
     start_time = time.time()
@@ -94,7 +94,7 @@ def embed_upsert(filepath, verbose=False):
 
     for document in tqdm(documents):
 
-        embedding = palm.generate_embeddings(model='models/embedding-gecko-001', text=document.page_content)
+        embedding = genai.generate_embeddings(model='models/embedding-gecko-001', text=document.page_content)
 
         vector = [{
             'id': str(uuid.uuid4().int),
@@ -137,7 +137,7 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
         except KeyError:
              print(f"Unable to retrieve index stats for {namespace}")
 
-        xq = palm.generate_embeddings(model='models/embedding-gecko-001', text=query)
+        xq = genai.generate_embeddings(model='models/embedding-gecko-001', text=query)
 
         res = index.query(
              top_k=5,
@@ -173,11 +173,19 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
 
                 {xq}
         """
-        res = palm.chat(prompt=message, temperature=temperature)
+        # res = genai.chat(prompt=message, temperature=temperature)
 
-        if verbose:
-                print(context)
-        return res.last
+        # if verbose:
+        #         print(context)
+        # return res.last
+
+        model = genai.GenerativeModel('gemini-pro')
+        response = model.generate_content(message, stream=True)
+
+        partial_message = ""
+        for chunk in response:
+            partial_message = partial_message + chunk.text
+            yield partial_message
 
 
 # # Batch Upsert
