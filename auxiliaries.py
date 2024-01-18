@@ -38,18 +38,20 @@ def read_split_pdf(file, chunk_size=512, chunk_overlap=0):
 
     return texts
 
+def clean_filename(pathname):
+    filename = os.path.basename(pathname)
+    filename = re.sub(r'[^a-zA-Z0-9]', '', filename)
+    filename.lower()
+    return filename
+
 
 def embed_upsert(filepath, verbose=False):
     """
     Takes a read-in file gets its embeddings and upserts the embeddings to pinecone vector database
     """
-    documents = read_split_pdf(filepath)
+    
 
-    def clean_filename(pathname):
-        filename = os.path.basename(pathname)
-        filename = re.sub(r'[^a-zA-Z0-9]', '', filename)
-        filename.lower()
-        return filename
+
 
     namespace = clean_filename(filepath)
     
@@ -64,10 +66,14 @@ def embed_upsert(filepath, verbose=False):
 
     # Check if Namespace already availabe, if so terminate.
     stats = index.describe_index_stats()
+
     if namespace in stats['namespaces'].keys():
          return ["File already Present in Database. Ask Away!", namespace]
+    
 
-    index.delete(delete_all=True, namespace=namespace)          # Delete namespace if exists
+    documents = read_split_pdf(filepath)
+
+    # index.delete(delete_all=True, namespace=namespace)          # Delete namespace if exists
 
     for document in tqdm(documents):
 
