@@ -38,29 +38,6 @@ def read_split_pdf(file, chunk_size=512, chunk_overlap=0):
 
     return texts
 
-def upsert(records, api_key):
-    request_url = "https://url-from-console.svc.us-east1-gcp.pinecone.io/vectors/upsert"
-    response = requests.post(request_url,
-                                headers={
-                                    'Api-Key': api_key,
-                                    'accept': 'application/json',
-                                    'content-type': 'application/json'
-                                },
-                                data=json.dumps(records))
-
-
-    if response.status_code == 200:
-        print("Documents upserted succesfully!")
-
-
-def batch_upsert(iterable, batch_size=100):
-    """A helper function to break an iterable into chunks of size batch_size."""
-    it = iter(iterable)
-    chunk = tuple(itertools.islice(it, batch_size))
-    while chunk:
-        yield chunk
-        chunk = tuple(itertools.islice(it, batch_size))
-
 
 def embed_upsert(filepath, verbose=False):
     """
