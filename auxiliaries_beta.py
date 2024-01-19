@@ -24,62 +24,70 @@ pc = Pinecone(api_key=pinecone_key)
 genai.configure(api_key=genai_key)
 
 
+def summarize_innet_texts(contexts: list[str], chunk_size: int, chunk_overlap: int, api_call_limit: int = 10) -> str:
+    
+    
+    llm_calls = 0
+
+    # Critical. If the text is split into more than one chunk then loop through and summarize each
+    while len(contexts) > 1: 
+
+        if llm_calls > api_call_limit:
+            break
+
+        responses = []
+        for context in contexts:
+
+            prompt = f"""
+            I will provide you with text enclosed in triple quote marks (```)
+            Your goal is to summarize very briefly, what is contained in the text \
+            It should be like the introduction to a book or an article abstract \
+            You will inform the user:
+                What the text is about in general
+                The key points made in the text
+                Some key words and terminology, if they stand out
+
+            Here is the text:
 
 
+            ```
+            {context}
+            ```
 
-def summarize(filepath, chunk_size=2048, verbose=False):
+            The output of this will be used for a subsequent summarization.
+            """
+
+            model = genai.GenerativeModel('gemini-pro')
+            res = model.generate_content(prompt)
+            responses.append(res.text)
+
+            llm_calls += 1
+            print(f"LLM called {llm_calls} times")
+
+        text = "\n\n".join(responses)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_size//8)
+        contexts = text_splitter.split_text(text)
+
+
+    return text
+
+def summarize(filepath, chunk_size=4096, verbose=False):
     """
     Triggered by change event on file upload,
         to summarize file contents
     """
 
-    documents = read_split_pdf(filepath, chunk_size=chunk_size, chunk_overlap=chunk_size//8)
-
-    def generate_prompt(text):
-        prompt = f"""
-        I will provide you with text enclosed in triple quote marks (```)
-        Your goal is to summarize very briefly, what is contained in the text \
-        Use on average {chunk_size//10} words
-        It should be like the introduction to a book or an article abstract \
-        You will inform the user:
-            What the text is about in general
-            The key points made in the text
-            Some key words and terminology, if they stand out
-
-        Here is the text:
+    loader = PyMuPDFLoader(filepath)
+    documents = loader.load()
+    docs = "\n\n".join([document.page_content for document in documents])
 
 
-        ```
-        {text}
-        ```
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_size//8)
+    texts = text_splitter.split_text(docs)
 
-        The output of this will be used for a subsequent summarization.
-        """
-        return prompt
+    summary = summarize_innet_texts(texts, chunk_size, chunk_overlap=chunk_size//8)
 
-    responses = []
-    for document in documents:
-
-        prompt = generate_prompt(document.page_content)
-        model = genai.GenerativeModel('gemini-pro')
-        res = model.generate_content(prompt)
-        responses.append(res.text)
-
-
-    final_responses = []
-    for response in responses:
-
-        prompt = generate_prompt(response)
-        model = genai.GenerativeModel('gemini-pro')
-        res = model.generate_content(prompt)
-        final_responses.append(res.text)
-
-    final_response = "\n\n".join(final_responses)        
-    prompt = generate_prompt(final_response)
-    
-    res = model.generate_content(prompt)
-    return res.text
-
+    return summary
 
 
 
