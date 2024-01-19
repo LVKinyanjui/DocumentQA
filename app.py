@@ -20,6 +20,24 @@ with gr.Blocks() as iface:
     file.change(fn=embed_upsert, inputs=file, outputs=[feedback, namespace])
 
 # %%
+namespace = gr.Textbox(
+    label="Namespace (Pinecone)", 
+    placeholder="(Optional) Display or Enter Pinecone Document Namespace",
+    )
+
+with gr.Blocks() as iface:
+
+    gr.ChatInterface(
+        fn=retrieve, 
+        additional_inputs=[namespace]
+    )
+
+    file = gr.File()
+    feedback = gr.Markdown()
+
+    file.change(fn=embed_upsert, inputs=file, outputs=[feedback, namespace])
+
+# %%
 iface.launch()
 
 # %%
