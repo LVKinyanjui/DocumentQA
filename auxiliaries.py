@@ -1,10 +1,7 @@
 import os
 import re
-import json
 import uuid
 import time
-import requests
-import itertools
 from tqdm import tqdm
 
 from pinecone import Pinecone
@@ -22,6 +19,74 @@ pinecone_key = '2face206-ee83-4167-bc38-c6f319ebb8c6'
 pc = Pinecone(api_key=pinecone_key)
 
 genai.configure(api_key=genai_key)
+
+
+
+def summarize(filepath, chunk_size=16000, api_call_limit=20, verbose=True):
+    """
+    Triggered by change event on file upload,
+        to summarize file contents
+    """
+
+    loader = PyMuPDFLoader(filepath)
+    documents = loader.load()
+    docs = "\n\n".join([document.page_content for document in documents])
+
+    
+    llm_calls = 0
+    while True:
+
+        if llm_calls > api_call_limit:
+            break
+
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_size//8)
+        contexts = text_splitter.split_text(docs)
+
+        responses = []
+        for context in contexts:
+
+            prompt = f"""
+            I will provide you with text enclosed in triple quote marks (```)
+            Your goal is to summarize very briefly, what is contained in the text \
+            It should be like the introduction to a book or an article abstract \
+            You will inform the user:
+                What the text is about in general
+                The key points made in the text
+                Some key words and terminology, if they stand out
+
+            Here is the text:
+
+
+            ```
+            {context}
+            ```
+
+            The output of this will be used for a subsequent summarization.
+            """
+
+            model = genai.GenerativeModel('gemini-pro')
+            res = model.generate_content(prompt)
+            responses.append(res.text)
+
+            llm_calls += 1
+            if verbose:
+                print(f"LLM called {llm_calls} times")
+
+            time.sleep(1)
+
+        docs = "\n\n".join(responses)
+
+        # Simulates do while loop
+        # Critical. If contexts have only one chunk end the inference.
+        if len(contexts) <= 1:
+            break
+
+    if docs is not None:
+        return docs
+    else:
+        return "API call Limit exceeded. Document May be too long."
+
+
 
 def read_split_pdf(file, chunk_size=512, chunk_overlap=0):
     start_time = time.time()
