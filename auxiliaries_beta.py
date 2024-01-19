@@ -24,16 +24,26 @@ pc = Pinecone(api_key=pinecone_key)
 genai.configure(api_key=genai_key)
 
 
-def summarize_innet_texts(contexts: list[str], chunk_size: int, chunk_overlap: int, api_call_limit: int = 10) -> str:
+
+def summarize(filepath, chunk_size=4096, api_call_limit=10, verbose=False):
+    """
+    Triggered by change event on file upload,
+        to summarize file contents
+    """
+
+    loader = PyMuPDFLoader(filepath)
+    documents = loader.load()
+    docs = "\n\n".join([document.page_content for document in documents])
     
     
     llm_calls = 0
-
-    # Critical. If the text is split into more than one chunk then loop through and summarize each
-    while len(contexts) > 1: 
+    while True:
 
         if llm_calls > api_call_limit:
             break
+
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_size//8)
+        contexts = text_splitter.split_text(docs)
 
         responses = []
         for context in contexts:
@@ -62,33 +72,18 @@ def summarize_innet_texts(contexts: list[str], chunk_size: int, chunk_overlap: i
             responses.append(res.text)
 
             llm_calls += 1
-            print(f"LLM called {llm_calls} times")
-
-        text = "\n\n".join(responses)
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_size//8)
-        contexts = text_splitter.split_text(text)
+            if verbose:
+                print(f"LLM called {llm_calls} times")
 
 
-    return text
+        docs = "\n\n".join(responses)
 
-def summarize(filepath, chunk_size=4096, verbose=False):
-    """
-    Triggered by change event on file upload,
-        to summarize file contents
-    """
+        # Simulates do while loop
+        # Critical. If contexts have only one chunk end the inference.
+        if len(contexts) <= 1:
+            break
 
-    loader = PyMuPDFLoader(filepath)
-    documents = loader.load()
-    docs = "\n\n".join([document.page_content for document in documents])
-
-
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_size//8)
-    texts = text_splitter.split_text(docs)
-
-    summary = summarize_innet_texts(texts, chunk_size, chunk_overlap=chunk_size//8)
-
-    return summary
-
+    return docs
 
 
 
