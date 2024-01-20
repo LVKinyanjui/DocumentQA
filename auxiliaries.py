@@ -202,8 +202,10 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
                 Your job is to ingest data from documents and come up with concise ways of expressing it \
                 In other words, you will summarize documents for audiences \
                 You will target a novive audience who may not have prior knowledge of the text \
-                Whenever you do not have enough information to summarize say explicitly:
-                "I do not have enough information"
+                Whenever you do not have enough information to answer you will hint to the user:
+                "I do not have enough information to answer that question, but " \
+                Then proceed to answer the question that you do have enough information to answer \
+                The point is to notify the user kindly before answering per the context provided
                 Otherwise provide a well annotated summary \
                 If the context section (usually enclosed in triple backticks ```) is empty say: \
                 "No Documents were provided to summarize" \
