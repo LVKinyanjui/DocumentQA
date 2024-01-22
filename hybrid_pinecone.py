@@ -13,7 +13,10 @@ class HybridPinecone:
     def __init__(self, api_key, environment):
         # make environment, headers and project_id available across all the function within the class
         self.environment = environment
-        self.headers = {'Api-Key': api_key}
+        self.headers = {
+            'Api-Key': api_key,
+            'Content-Type': 'application/json'
+            }
         # get project_id
         res = requests.get(
             f"https://controller.{self.environment}.pinecone.io/actions/whoami",
@@ -81,15 +84,24 @@ class HybridPinecone:
         return res
 
     # searches pinecone database with the query
-    def query(self, query):
+    def query(self, top_k, vector, sparse_vector, include_metadata):
         # sends a post request to hybrib vector index with the query dict
+        params = {
+            "includeValues": False,
+            "includeMetadata": include_metadata,
+            "vector": vector,
+            "sparseVector": sparse_vector,
+            "topK": top_k,
+            "namespace": ""
+        }
+
         res = requests.post(
             f"https://{self.host}/hybrid/query",
             headers=self.headers,
-            json=query
+            json=params
         )
         # returns the result as json
-        return res.json()
+        return res
 
     # deletes an index in pinecone database
     def delete_index(self, index_name):
@@ -166,7 +178,7 @@ class HybridPinecone:
         return dense_embeds
     
     
-    def hybrid_upsert(self, contexts: list, batch_size=100):
+    def hybrid_embed_upsert(self, contexts: list, batch_size=100):
         """
         Upsert both dense and sparse vectors to the index, after generating embeddings
         Parameters
@@ -242,12 +254,8 @@ class HybridPinecone:
             dense_vec, sparse_vec, alpha
         )
         # query pinecone with the query parameters
-        result = self.query(
-            top_k=top_k,
-            vector=dense_vec,
-            sparse_vector=sparse_vec,
-            include_metadata=True
-        )
+        result = self.query(top_k, dense_vec, sparse_vec, include_metadata=True)
         # return search results as json
         return result
     
+# %%
