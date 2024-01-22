@@ -65,8 +65,13 @@ def summarize(filepath, chunk_size=16000, api_call_limit=20, verbose=True):
             """
 
             model = genai.GenerativeModel('gemini-pro')
-            res = model.generate_content(prompt)
-            responses.append(res.text)
+            result = model.generate_content(prompt)
+            try:
+                responses.append(result.text)
+            except ValueError:
+                # responses.append(result.parts[0])
+                print("Prompt response probably blocked")
+                pass
 
             llm_calls += 1
             if verbose:
