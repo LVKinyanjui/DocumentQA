@@ -1,7 +1,10 @@
 # %%
 import requests
+from tqdm.auto import tqdm
 
-from transformers import BertTokenizerFast
+from transformers import BertTokenizerFast              # Sparse Embeddings
+from sentence_transformers import SentenceTransformer   # Dense Embeddings
+from collections import Counter
 
 
 # %%
@@ -97,4 +100,154 @@ class HybridPinecone:
         )
         # returns the http response status
         return res
+    
 
+
+
+
+
+    def build_dict(self, input_batch: dict):
+        """
+        Convert sparse embeddings into proper format required by pinecone
+        Parameters:
+            input_batch: sparse embeddings as a key and value pair (dictionary)
+        """
+        sparse_emb = []
+        # iterate through input batch
+        for token_ids in input_batch:
+            indices = []
+            values = []
+            # convert the input_ids list to a dictionary of key to frequency values
+            d = dict(Counter(token_ids))
+            for idx in d:
+                    indices.append(idx)
+                    values.append(float(d[idx]))                        # Extremely important to cast values as float
+                                                                        # Otherwise you get: SparseValuesMissingKeysError: Missing required keys in data in column `sparse_values`.
+            sparse_emb.append({'indices': indices, 'values': values})
+        # return sparse_emb list
+        return sparse_emb
+    
+
+    def generate_sparse_vectors(self, context_batch: list, tokenizer_name='bert-base-uncased'):
+        """
+        Generate sparse embeddings in a format suitable for pinecone.
+        Parameters:
+            contents: texts to be tokenized
+            name: pretrained tokenizer, from hugging face
+        """
+        tokenizer = BertTokenizerFast.from_pretrained(tokenizer_name)     # To be replaced with a higher order function
+
+        # Generate input IDs
+        inputs = tokenizer(
+                context_batch, padding=True,
+                truncation=True,
+                max_length=512
+        )['input_ids']
+
+        # create sparse dictionaries
+        sparse_embeds = self.build_dict(inputs)
+        return sparse_embeds
+
+
+    def generate_dense_vectors(self, context_batch: list, model_name='multi-qa-MiniLM-L6-cos-v1', device='cpu'):
+        """
+        Generate dense embeddings. Uses a Sentence Transformer model
+        Parameters
+            context_batch: the texts to get embeddings of
+            model_name: model name to use with sentence transformer, hugging face
+            device: where to run model on, cpu or cuda
+        """
+        model = SentenceTransformer(
+            model_name,
+            device=device                   # or cuda, if available
+        )
+
+        dense_embeds = model.encode(context_batch).tolist()
+        return dense_embeds
+    
+    
+    def hybrid_upsert(self, contexts: list, batch_size=100):
+        """
+        Upsert both dense and sparse vectors to the index, after generating embeddings
+        Parameters
+            contexts: Text to be encoded and upserted
+        """
+
+        for i in tqdm(range(0, len(contexts), batch_size)):
+            # find end of batch
+            i_end = min(i+batch_size, len(contexts))
+            # extract batch
+            context_batch = contexts[i:i_end]
+            # create unique IDs
+            ids = [str(x) for x in range(i, i_end)]
+            # add context passages as metadata
+            meta = [{'context': context} for context in context_batch]
+            # create dense vectors
+            dense_embeds = self.generate_dense_vectors(context_batch)
+            # create sparse vectors
+            sparse_embeds = self.generate_sparse_vectors(context_batch)
+
+            vectors = []
+            # loop through the data and create dictionaries for uploading documents to pinecone index
+            for _id, sparse, dense, metadata in zip(ids, sparse_embeds, dense_embeds, meta):
+                vectors.append({
+                    'id': _id,
+                    'sparse_values': sparse,
+                    'values': dense,
+                    'metadata': metadata
+                })
+
+            # upload the documents to the new hybrid index
+            self.upsert(vectors)
+
+
+    def hybrid_scale(self, dense: list, sparse: list, alpha: float):
+        """
+        Scale sparse and dense vectors to create hybrid search vecs
+            while enusring alpha value is between 0 and 1
+        Parameters
+            dense: dense vector list
+            sparse: sparse vector list
+            alpha: a value weighting dense or sparse search
+                1, full dense search    0, full sparse search
+        """
+
+        if alpha < 0 or alpha > 1:
+            raise ValueError("Alpha must be between 0 and 1")
+        
+        # Scale
+        hsparse = {
+            'indices': sparse['indices'],
+            'values':  [v * (1 - alpha) for v in sparse['values']]
+        }
+        hdense = [v * alpha for v in dense]
+        return hdense, hsparse
+
+
+    def hybrid_query(self, question: str, top_k=5, alpha=0.5):
+        """
+        Query pinecone index using a sparse and dense vector representation of the question
+        Parameters:
+            question: string query for pinecone
+            top-k: number of results to return from the query
+            alpha: a value weighting dense or sparse search
+                1, full dense search    0, full sparse search
+        """
+        # convert the question into a sparse vector
+        sparse_vec = self.generate_sparse_vectors([question])[0]
+        # convert the question into a dense vector
+        dense_vec = self.generate_dense_vectors([question])[0]
+        # scale alpha with hybrid_scale
+        dense_vec, sparse_vec = self.hybrid_scale(
+            dense_vec, sparse_vec, alpha
+        )
+        # query pinecone with the query parameters
+        result = self.query(
+            top_k=top_k,
+            vector=dense_vec,
+            sparse_vector=sparse_vec,
+            include_metadata=True
+        )
+        # return search results as json
+        return result
+    
