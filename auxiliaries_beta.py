@@ -10,6 +10,10 @@ import google.generativeai as genai
 from langchain.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
+from langchain.chains import ConversationChain
+from langchain.chat_models import ChatGooglePalm
+from langchain.chains.conversation.memory import ConversationBufferWindowMemory
+
 genai_key = 'AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
 # os.getenv("genai_API_KEY")
 pinecone_key = '18e4d60d-209a-43ed-8e2c-0f3a8d1ffcbb'
@@ -227,19 +231,29 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
 
         prompt_template = """
                 You are a teacher \
-                Your job is to create question answer sheets and assess student responses \
-                You are to take the student's response and rate it \
-                If it is correct, tell them 'correct' \
+                The human in this case is the student \
+                Your job is to create A SINGLE qustion from a textbook context, 
+                enclosed in triple backticks ``` \
+                You are to take the student's response to your question \
+                You will then assess it based on the context
+                If it is correct, tell them 'correct', plus any additional feedback \
                 If wrong, tell them kindly what the right answer is \
-                Consider the general context to create good questions and answers \
-                You issue the question to the student and rate against your predetermined answer \
                 If the context section (usually enclosed in triple backticks ```) is empty say: \
                 "No Documents were provided for question answer" \
-                If there are points use numbered or bulleted lists \
-                Highlight important points \
-                Provide an introduction and conclusion whenever necessary \
                 
-                You are provided with the textbook content below
+                The question should be asked simply  in the following format:\
+                "
+                what is this thing called?
+                what does that thing do?
+                How do we do this thing
+                " etc.
+
+                The student responds with text enclosed in triple hyphens ---
+
+
+                This is what you will evaluate based on the context
+                
+                You are provided with the textbook context and the student response below
         """
 
         message = f"""
@@ -249,12 +263,29 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
                 {context}
                 ```
                 
+                ---
+                {query}
+                ---
+
         """
 
-        gemini = genai.GenerativeModel('gemini-pro')
-        response = gemini.generate_content(message, stream=True)
+        # Model with memory
+        llm = ChatGooglePalm(
+            google_api_key=genai_key
+        )
+        conversation_chain = ConversationChain(
+            llm=llm,
+            memory=ConversationBufferWindowMemory(k=5)
+        )
 
-        partial_message = ""
-        for chunk in response:
-            partial_message = partial_message + chunk.text
-            yield partial_message
+        result = conversation_chain(message)
+
+        return result['response']
+
+        # gemini = genai.GenerativeModel('gemini-pro')
+        # response = gemini.generate_content(message, stream=True)
+
+        # partial_message = ""
+        # for chunk in response:
+        #     partial_message = partial_message + chunk.text
+        #     yield partial_message
