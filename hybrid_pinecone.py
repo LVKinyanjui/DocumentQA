@@ -87,7 +87,7 @@ class HybridPinecone:
     def query(self, top_k, vector, sparse_vector, include_metadata):
         # sends a post request to hybrib vector index with the query dict
         params = {
-            "includeValues": False,
+            "includeValues": True,
             "includeMetadata": include_metadata,
             "vector": vector,
             "sparseVector": sparse_vector,
@@ -96,12 +96,15 @@ class HybridPinecone:
         }
 
         res = requests.post(
-            f"https://{self.host}/hybrid/query",
+            f"https://{self.host}/query",
             headers=self.headers,
             json=params
         )
         # returns the result as json
-        return res
+        if res.status_code == 200:
+            return res.json()
+        else:
+            return res
 
     # deletes an index in pinecone database
     def delete_index(self, index_name):
