@@ -60,7 +60,9 @@ jupyter_client==8.6.0
 jupyter_core==5.7.1
 kiwisolver==1.4.5
 langchain==0.0.339
-langsmith==0.0.81
+langchain-core==0.1.14
+langchain-google-genai==0.0.6
+langsmith==0.0.83
 llama-index==0.9.33
 markdown-it-py==3.0.0
 MarkupSafe==2.1.3
