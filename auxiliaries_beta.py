@@ -12,6 +12,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from langchain.chains import ConversationChain
 from langchain.chat_models import ChatGooglePalm
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 
 genai_key = 'AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
@@ -270,9 +271,13 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
         """
 
         # Model with memory
-        llm = ChatGooglePalm(
-            google_api_key=genai_key
-        )
+        llm = ChatGoogleGenerativeAI(
+            google_api_key=os.getenv("PALM_API_KEY"),
+            model="gemini-pro",
+            # temperature=0.3, 
+            convert_system_message_to_human=True
+            ) 
+                           
         conversation_chain = ConversationChain(
             llm=llm,
             memory=ConversationBufferWindowMemory(k=5)
