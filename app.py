@@ -1,6 +1,6 @@
 # %%
 import gradio as gr
-from auxiliaries import embed_upsert, retrieve, summarize
+from auxiliaries_beta import embed_upsert, retrieve, summarize
 
 # %%
 with gr.Blocks() as iface:
@@ -17,15 +17,17 @@ with gr.Blocks() as iface:
 
     with gr.Accordion("Document Summary"):
         summary = gr.Markdown()
+        button = gr.Button("Summarize")
 
     file = gr.File()
     feedback = gr.Markdown()
 
     file.change(fn=embed_upsert, inputs=file, outputs=[feedback, namespace])
-    file.change(fn=summarize, inputs=file, outputs=summary)
+    button.click(fn=summarize, inputs=file, outputs=summary)
+    # file.change(fn=summarize, inputs=file, outputs=summary)
 
 # %%
-iface.launch(share=True)
+iface.launch()
 
 # %%
 
