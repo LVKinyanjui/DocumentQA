@@ -10,9 +10,14 @@ with gr.Blocks() as iface:
     visible=False
     )
 
+    # Adding a welcome messahge
+    chatbot = gr.Chatbot(
+        value=[[None, "Hi. I am here to help you search through your documents through question and answer"]]
+        )
     gr.ChatInterface(
         fn=retrieve, 
-        additional_inputs=[namespace]
+        additional_inputs=[namespace],
+        chatbot=chatbot
     )
 
     with gr.Accordion("Document Summary"):
