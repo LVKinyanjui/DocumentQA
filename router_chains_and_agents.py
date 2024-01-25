@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 llm = ChatGooglePalm(
-    google_api_key=os.getenv("GENAI_KEY")
+    google_api_key='AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
 )
 
 def route_user_responses(user_input, contexts):
