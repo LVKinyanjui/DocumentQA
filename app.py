@@ -1,6 +1,6 @@
 # %%
 import gradio as gr
-from DocumentQA.auxiliaries import embed_upsert, retrieve, summarize
+from auxiliaries import embed_upsert, retrieve, summarize
 
 # %%
 # Adding a welcome messahge
