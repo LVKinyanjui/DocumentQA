@@ -9,10 +9,9 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-genai_key = os.getenv("GENAI_KEY")
 
 llm = ChatGooglePalm(
-    google_api_key=genai_key
+    google_api_key=os.getenv("GENAI_KEY")
 )
 
 def route_user_responses(user_input, contexts):
