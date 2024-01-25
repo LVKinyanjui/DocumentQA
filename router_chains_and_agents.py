@@ -6,7 +6,10 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 
 import os
-genai_key = os.getenv("PALM_API_KEY")
+from dotenv import load_dotenv
+
+load_dotenv()
+genai_key = os.getenv("GENAI_KEY")
 
 llm = ChatGooglePalm(
     google_api_key=genai_key
