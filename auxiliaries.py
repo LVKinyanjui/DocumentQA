@@ -22,10 +22,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 pc = Pinecone(
-    api_key=os.getenv("PINECONE_KEY")
+    api_key='18e4d60d-209a-43ed-8e2c-0f3a8d1ffcbb'
     )
 genai.configure(
-    api_key=os.getenv("GENAI_KEY")
+    api_key='AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
     )
 
 bm25 = BM25Encoder()
