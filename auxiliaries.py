@@ -1,26 +1,34 @@
-import os
-import re
-import uuid
-import time
+# %%
+import os, re, uuid, time
 from tqdm import tqdm
 
 from pinecone import Pinecone
+from pinecone_text.sparse import BM25Encoder
+from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 
-import time
 from langchain.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-genai_key = 'AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
-# os.getenv("genai_API_KEY")
-pinecone_key = '2face206-ee83-4167-bc38-c6f319ebb8c6'
-# os.getenv("PINECONE_API_KEY")
+from langchain.chains import ConversationChain
+from langchain.chat_models import ChatGooglePalm
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 
-pc = Pinecone(api_key=pinecone_key)
+from router_chains_and_agents import route_user_responses
 
-genai.configure(api_key=genai_key)
+from dotenv import load_dotenv
 
+load_dotenv()
 
+pc = Pinecone(
+    api_key=os.getenv("PINECONE_KEY")
+    )
+genai.configure(
+    api_key=os.getenv("GENAI_KEY")
+    )
+
+bm25 = BM25Encoder()
 
 def summarize(filepath, chunk_size=16000, api_call_limit=20, verbose=True):
     """
@@ -93,20 +101,24 @@ def summarize(filepath, chunk_size=16000, api_call_limit=20, verbose=True):
 
 
 
-def read_split_pdf(file, chunk_size=512, chunk_overlap=0):
+def read_split_pdf(file, chunk_size=256, chunk_overlap=0):
     start_time = time.time()
 
     loader = PyMuPDFLoader(file)
     documents = loader.load()
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-    texts = text_splitter.split_documents(documents)
+    docs = text_splitter.split_documents(documents)
+
+    # Fit BM2
+    doc_texts = [document.page_content for document in docs]       # Type to list[str]
+    bm25.fit(corpus=doc_texts)
 
     end_time = time.time()
     total_time = end_time - start_time
     print(f"Execution time in seconds: {total_time}")
 
-    return texts
+    return docs
 
 def clean_filename(pathname):
     filename = os.path.basename(pathname)
@@ -115,22 +127,18 @@ def clean_filename(pathname):
     return filename
 
 
+
 def embed_upsert(filepath, verbose=False):
     """
     Takes a read-in file gets its embeddings and upserts the embeddings to pinecone vector database
     """
-    
-
-
+    documents = read_split_pdf(filepath)
 
     namespace = clean_filename(filepath)
     
     # Ensure index available (Any)
     indexes = pc.list_indexes()
-    if len(indexes) > 0:
-        index_name = indexes[0]['name']
-    else:
-         pc.create_index('general', dimension=768)
+    index_name = indexes[0]['name']
 
     index = pc.Index(index_name)                          # Initialize index
 
@@ -140,24 +148,32 @@ def embed_upsert(filepath, verbose=False):
     if namespace in stats['namespaces'].keys():
          return ["File already Present in Database. Ask Away!", namespace]
     
-
-    documents = read_split_pdf(filepath)
-
     # index.delete(delete_all=True, namespace=namespace)          # Delete namespace if exists
 
+    # EMBEDDING MODELS
+
+    ## Dense
+    model = SentenceTransformer(
+        'multi-qa-MiniLM-L6-cos-v1',
+        device='cpu'
+    )
+
     for document in tqdm(documents):
+        texts = document.page_content
 
-        embedding = genai.generate_embeddings(model='models/embedding-gecko-001', text=document.page_content)
-
-        vector = [{
+        dense_vector = model.encode(texts).tolist()
+        sparse_vector = bm25.encode_documents(texts)
+        
+        records = [{
             'id': str(uuid.uuid4().int),
-            'values': embedding['embedding'],
+            'values': dense_vector,
+            'sparse_values': sparse_vector,
             'metadata': {
-                'text': document.page_content
+                'text': texts
             }
         }]
 
-        index.upsert(vectors=vector, namespace=namespace)       # Upsert to target namespace
+        index.upsert(records, namespace=namespace)
 
         if verbose:
             print(index.describe_index_stats())
@@ -169,11 +185,8 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
 
         # Ensure index available (Any)
         indexes = pc.list_indexes()
-        if len(indexes) > 0:
-            index_name = indexes[0]['name']
-            index = pc.Index(index_name)
-        else:
-            raise NameError(f"The index {index_name} does not exist. Please make sure the index is present before attempting to connect to it.") 
+        index_name = indexes[0]['name']
+        index = pc.Index(index_name)
 
         # Check for availability of vectors
         try:
@@ -190,63 +203,99 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
         except KeyError:
              print(f"Unable to retrieve index stats for {namespace}")
 
-        xq = genai.generate_embeddings(model='models/embedding-gecko-001', text=query)
+        ## Dense
+        model = SentenceTransformer(
+            'multi-qa-MiniLM-L6-cos-v1',
+            device='cpu'
+        )
+
+
+        sparse_vector = bm25.encode_documents(query)
+        dense_vector = model.encode(query).tolist()
+        print(f"The length of our dense vector is: {len(dense_vector)}")
+
+        # Check for presence of records before querying
+        if index.describe_index_stats()['total_vector_count'] == 0:
+            print("No Records Found. Query may not retrieve any matches.")
 
         res = index.query(
-             top_k=5,
-             vector=xq['embedding'], 
-             include_metadata=True, 
-             namespace=namespace
-             )
+            top_k=2,
+            vector=dense_vector,
+            sparse_vector=sparse_vector,
+            include_metadata=True,
+            namespace=namespace
+        )
         
         context = '\n\n'.join([match['metadata']['text'] for match in res['matches']])
 
+        res = route_user_responses(query, context)
+        return res
 
-        prompt_template = """
-                You are a consultant \
-                Your job is to ingest data from documents and come up with concise ways of expressing it \
-                In other words, you will summarize documents for audiences \
-                You will target a novive audience who may not have prior knowledge of the text \
-                Whenever you do not have enough information to answer you will hint to the user:
-                "I do not have enough information to answer that question, but " \
-                Then proceed to answer the question that you do have enough information to answer \
-                The point is to notify the user kindly before answering per the context provided
-                Otherwise provide a well annotated summary \
-                If the context section (usually enclosed in triple backticks ```) is empty say: \
-                "No Documents were provided to summarize" \
-                If there are points use numbered or bulleted lists \
-                Highlight important points \
-                Provide an introduction and conclusion whenever necessary \
+        # prompt_template = """
+        #         You are a teacher \
+        #         The human in this case is the student \
+
+        #         You start off by creating A SINGLE qustion from a textbook context, 
+        #         enclosed in triple backticks ``` \
+        #         You will either receive a question from the student or a response to your earlier question
                 
-                You are provided with the user query in follow up messages
-        """
+        #         If it is a question you will answer it from your entire memory \
+                
+        #         if it is an answer to a question you remember asking, you will assess it 
+        #             If it is correct, tell them 'correct', plus any additional feedback \
+        #             If wrong, tell them kindly what the right answer is \
+        #         If the context section (usually enclosed in triple backticks ```) is empty say: \
+        #         "No Documents were provided for question answer" \
+                
+        #         The question should be asked simply  in the following format:\
+        #         "
+        #         what is this thing called?
+        #         what does that thing do?
+        #         How do we do this thing
+        #         " etc.
 
-        message = f"""
-                {prompt_template}
-
-                ```
-                {context}
-                ```
-
-                Given the above context, answer the following question to the best of your ability: \
-
-                {xq}
-        """
-        # res = genai.chat(prompt=message, temperature=temperature)
-
-        # if verbose:
-        #         print(context)
-        # return res.last
-
-        model = genai.GenerativeModel('gemini-pro')
-        response = model.generate_content(message, stream=True)
-
-        partial_message = ""
-        for chunk in response:
-            partial_message = partial_message + chunk.text
-            yield partial_message
+        #         The student responds with text enclosed in triple hyphens ---
 
 
-# # Batch Upsert
-# for batch in batch_upsert(vectors, batch_size=100):
-#     index.upsert(vectors=batch, namespace=clean_filename(filepath)) 
+        #         This is what you will evaluate based on the context
+                
+        #         You are provided with the textbook context and the student response below
+        # """
+
+        # message = f"""
+        #         {prompt_template}
+
+        #         ```
+        #         {context}
+        #         ```
+                
+        #         ---
+        #         {query}
+        #         ---
+
+        # """
+
+        # # Model with memory
+        # llm = ChatGoogleGenerativeAI(
+        #     google_api_key=os.getenv("PALM_API_KEY"),
+        #     model="gemini-pro",
+        #     # temperature=0.3, 
+        #     convert_system_message_to_human=True
+        #     ) 
+                           
+        # conversation_chain = ConversationChain(
+        #     llm=llm,
+        #     memory=ConversationBufferWindowMemory(k=5)
+        # )
+
+        # result = conversation_chain(message)
+
+        # return result['response']
+
+        # gemini = genai.GenerativeModel('gemini-pro')
+        # response = gemini.generate_content(message, stream=True)
+
+        # partial_message = ""
+        # for chunk in response:
+        #     partial_message = partial_message + chunk.text
+        #     yield partial_message

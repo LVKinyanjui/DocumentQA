@@ -1,8 +1,13 @@
 # %%
 import gradio as gr
-from auxiliaries_beta import embed_upsert, retrieve, summarize
+from DocumentQA.auxiliaries import embed_upsert, retrieve, summarize
 
 # %%
+# Adding a welcome messahge
+chatbot = gr.Chatbot(
+    value=[[None, "Hi. I am here to help you search through your documents through question and answer"]]
+    )
+
 with gr.Blocks() as iface:
     namespace = gr.Textbox(
     label="Namespace (Pinecone)", 
@@ -10,10 +15,7 @@ with gr.Blocks() as iface:
     visible=False
     )
 
-    # Adding a welcome messahge
-    chatbot = gr.Chatbot(
-        value=[[None, "Hi. I am here to help you search through your documents through question and answer"]]
-        )
+
     gr.ChatInterface(
         fn=retrieve, 
         additional_inputs=[namespace],
