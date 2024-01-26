@@ -158,6 +158,7 @@ def embed_upsert(filepath, verbose=False):
         device='cpu'
     )
 
+    records = []
     for document in tqdm(documents):
         texts = document.page_content
 
@@ -173,11 +174,18 @@ def embed_upsert(filepath, verbose=False):
             }
         }]
 
-        index.upsert(records, namespace=namespace)
+        ## Synchronous upsert: Slowwer
+        # index.upsert(records, namespace=namespace)
 
-        if verbose:
-            print(index.describe_index_stats())
-    
+    # Asynchronous upsert: Faster
+    def chunker(seq, batch_size):
+        return (seq[pos:pos + batch_size] for pos in range(0, len(seq), batch_size))
+
+    async_results = [
+    index.upsert(vectors=chunk, namespace=namespace, async_req=True)
+    for chunk in chunker(records, batch_size=100)
+    ]
+
     return ["File embedded and upserted succesfully!", namespace] # Return to multiple gradio components
 
 
