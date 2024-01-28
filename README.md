@@ -98,7 +98,7 @@ Follow these steps to obtain your Google Vertex API keys:
 3. Copy the generated API key.
 
 ### Secrets
-In the secrets folder, paste each API key next to the service like so:
+In the secrets folder in the credentials.json file , paste each API key next to the service like so:
 ``` {json}
 {
     "pinecone_key": "paste pinecone console key here",
@@ -110,5 +110,7 @@ In the secrets folder, paste each API key next to the service like so:
 
 Make sure you are in the project directory and your virtual environment is activated.
 
-You will also ensure your API keys are set in the credentials file.
-
+Run 
+```
+python app.py
+```
