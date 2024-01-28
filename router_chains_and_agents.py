@@ -1,3 +1,5 @@
+
+from langchain_google_genai.llms import GoogleGenerativeAI
 from langchain.chat_models import ChatGooglePalm
 from langchain.chains.router import MultiPromptChain
 from langchain.chains.router.llm_router import LLMRouterChain,RouterOutputParser
@@ -5,14 +7,17 @@ from langchain.prompts import PromptTemplate
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 
-import os
-from dotenv import load_dotenv
+import json, os
 
-load_dotenv()
+with open("secrets/credentials.json", encoding='utf-8') as f:
+    keys = json.load(f)
 
-llm = ChatGooglePalm(
-    google_api_key='AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
-)
+llm = GoogleGenerativeAI(
+    google_api_key=keys['google_key'],
+    model="gemini-pro",
+    temperature=0.2, 
+    convert_system_message_to_human=True
+    )     
 
 def route_user_responses(user_input, contexts):
     retriever_template = f"""
