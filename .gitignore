@@ -19,8 +19,8 @@ env/
 
 # Project specific
 /data/
-/secrets/
 /flagged/
 /snapshots/
 /images/
 /venv/
+/examples/

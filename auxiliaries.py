@@ -1,5 +1,5 @@
 # %%
-import os, re, uuid, time
+import os, re, uuid, time, json
 from tqdm import tqdm
 
 from pinecone import Pinecone
@@ -17,18 +17,22 @@ from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 
 from router_chains_and_agents import route_user_responses
 
-from dotenv import load_dotenv
 
-load_dotenv()
+# API Keys
+with open("secrets/credentials.json", encoding="utf-8") as f:
+    keys = json.load(f)
 
-pc = Pinecone(
-    api_key='18e4d60d-209a-43ed-8e2c-0f3a8d1ffcbb'
-    )
-genai.configure(
-    api_key='AIzaSyAv775lnDC5XMibOJgMntsfR7MouNYxpUU'
-    )
+pc = Pinecone(api_key=keys['pinecone_key'])
+genai.configure(api_key=keys['google_key'])
+
+# EMBEDDING MODELS
 
 bm25 = BM25Encoder()
+
+model = SentenceTransformer(
+    'multi-qa-MiniLM-L6-cos-v1',
+    device='cpu'
+)
 
 def summarize(filepath, chunk_size=16000, api_call_limit=20, verbose=True):
     """
@@ -112,7 +116,15 @@ def read_split_pdf(file, chunk_size=256, chunk_overlap=0):
 
     # Fit BM2
     doc_texts = [document.page_content for document in docs]       # Type to list[str]
-    bm25.fit(corpus=doc_texts)
+
+    global bm25
+
+    try:
+        global bm25
+        bm25.fit(corpus=doc_texts)
+    except ZeroDivisionError:
+        bm25 = BM25Encoder.default()
+        print("Failed to encode sparse vectors with our document. Loading default corpus")
 
     end_time = time.time()
     total_time = end_time - start_time
@@ -149,14 +161,6 @@ def embed_upsert(filepath, verbose=False):
          return ["File already Present in Database. Ask Away!", namespace]
     
     # index.delete(delete_all=True, namespace=namespace)          # Delete namespace if exists
-
-    # EMBEDDING MODELS
-
-    ## Dense
-    model = SentenceTransformer(
-        'multi-qa-MiniLM-L6-cos-v1',
-        device='cpu'
-    )
 
     records = []
     for document in tqdm(documents):
@@ -210,12 +214,6 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
                     continue
         except KeyError:
              print(f"Unable to retrieve index stats for {namespace}")
-
-        ## Dense
-        model = SentenceTransformer(
-            'multi-qa-MiniLM-L6-cos-v1',
-            device='cpu'
-        )
 
 
         sparse_vector = bm25.encode_documents(query)
