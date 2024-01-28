@@ -97,17 +97,18 @@ Follow these steps to obtain your Google Vertex API keys:
 
 3. Copy the generated API key.
 
-## Security Considerations
+### Secrets
+In the secrets folder, paste each API key next to the service like so:
+``` {json}
+{
+    "pinecone_key": "paste pinecone console key here",
+    "google_key": "paste google cloud key here"
+}
+```
 
-- **Keep Keys Secure:** Treat both Pinecone and Google Vertex API keys like passwords. Keep them confidential and avoid exposing them in public repositories.
-
-- **Use Environment Variables:** Consider using environment variables to store and access both API keys securely.
-
-- **Different Environments:** Be mindful of using separate keys for development, testing, and production environments.
-
-
-### Running the Application
+## Running the Application
 
 Make sure you are in the project directory and your virtual environment is activated.
+
 You will also ensure your API keys are set in the credentials file.
 
