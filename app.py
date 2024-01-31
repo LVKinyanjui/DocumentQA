@@ -1,40 +1,68 @@
 # %%
 import gradio as gr
-from auxiliaries import embed_upsert, retrieve, summarize
+from auxiliaries_beta import (
+    embed_upsert, summarize, ask_question, answer_question
+)
 
 # %%
-# Adding a welcome messahge
-chatbot = gr.Chatbot(
-    value=[[None, "Hi. I am here to help you search through your documents through question and answer"]]
-    )
+def save_chats(history):
+    with open("chat_history.txt", "w", encoding='utf-8') as f:
+        for line in history:
+            f.writelines(line)
+            f.write('\n\n')
 
-with gr.Blocks() as iface:
-    namespace = gr.Textbox(
+# %%
+chatbot_ask = gr.Chatbot(
+    value=[[None, "Hi. Ask me a question about the document you uploaded."]],
+    )
+chatbot_answer = gr.Chatbot(
+    value=[[None, "Hi. Let me ask you a question about the document you uploaded."]],
+)
+
+namespace = gr.Textbox(
     label="Namespace (Pinecone)", 
     placeholder="(Optional) Display or Enter Pinecone Document Namespace",
     visible=False
-    )
+)
+
+with gr.Blocks() as demo:
+    with gr.Tab("Upload Document"):
+        file = gr.File()
+        feedback = gr.Markdown()
+
+        file.change(fn=embed_upsert, inputs=file, outputs=[feedback, namespace])
+
+    with gr.Tab("Ask Questions"):
+
+        gr.ChatInterface(
+            fn=ask_question, 
+            additional_inputs=[namespace],
+            chatbot=chatbot_ask
+        )
+
+        with gr.Accordion("Document Summary"):
+            summary = gr.Markdown()
+            button = gr.Button("Summarize")
 
 
-    gr.ChatInterface(
-        fn=retrieve, 
-        additional_inputs=[namespace],
-        chatbot=chatbot
-    )
+        button.click(fn=summarize, inputs=file, outputs=summary)
 
-    with gr.Accordion("Document Summary"):
-        summary = gr.Markdown()
-        button = gr.Button("Summarize")
+    with gr.Tab("Answer Questions"):
+        gr.ChatInterface(
+            fn=answer_question, 
+            additional_inputs=[namespace],
+            chatbot=chatbot_answer
+        )
 
-    file = gr.File()
-    feedback = gr.Markdown()
+        with gr.Accordion("Document Summary"):
+            summary = gr.Markdown()
+            button = gr.Button("Summarize")
 
-    file.change(fn=embed_upsert, inputs=file, outputs=[feedback, namespace])
-    button.click(fn=summarize, inputs=file, outputs=summary)
-    # file.change(fn=summarize, inputs=file, outputs=summary)
+
+        button.click(fn=summarize, inputs=file, outputs=summary)
 
 # %%
-iface.launch()
+demo.launch()
 
 # %%
 
