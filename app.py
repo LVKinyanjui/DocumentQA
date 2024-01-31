@@ -32,6 +32,13 @@ with gr.Blocks() as demo:
 
         file.change(fn=embed_upsert, inputs=file, outputs=[feedback, namespace])
 
+        with gr.Accordion("Document Summary"):
+            summary = gr.Markdown()
+            button = gr.Button("Summarize")
+
+
+        button.click(fn=summarize, inputs=file, outputs=summary)
+
     with gr.Tab("Ask Questions"):
 
         gr.ChatInterface(
@@ -40,12 +47,6 @@ with gr.Blocks() as demo:
             chatbot=chatbot_ask
         )
 
-        with gr.Accordion("Document Summary"):
-            summary = gr.Markdown()
-            button = gr.Button("Summarize")
-
-
-        button.click(fn=summarize, inputs=file, outputs=summary)
 
     with gr.Tab("Answer Questions"):
         gr.ChatInterface(
@@ -54,12 +55,6 @@ with gr.Blocks() as demo:
             chatbot=chatbot_answer
         )
 
-        with gr.Accordion("Document Summary"):
-            summary = gr.Markdown()
-            button = gr.Button("Summarize")
-
-
-        button.click(fn=summarize, inputs=file, outputs=summary)
 
 # %%
 demo.launch()
