@@ -240,11 +240,13 @@ def retrieve(query, namespace=''):
 def ask_question(query, history, namespace):
     prompt_template = """
             Your job is to answer questions from a document \
-            You will be provided with context to answer the question. \
+            You will be provided with context to help you answer the question. \
             You will attempt to be as helpful as possible given the context \
             The context is enclosed in triple backticks (```) \
+            To answer to the user, you DO NOT have to use the context ONLY \
+            Use anything from your memory that you have access to to answer the user query. \
             the user query is enclosed in triple single quotes ('''') \
-            If you cannot find anything relevant from the context to answer the user query,
+            If you cannot find anything relevant from your memory to answer the user query,
             explain to the user kindly that you were unable to find anything relevant. \
             but still attempt to answer the user as best as you can \
             or explain what lies in the context and how the user query may relate to it.
@@ -283,13 +285,24 @@ def ask_question(query, history, namespace):
     return result['response']
 
 
-def answer_question(query, history, namespace):
+def answer_question(response, history, namespace):
     prompt_template = """
         Your job is to ask a user questions from given contexts \
-        You will be provided with context from which to create your questions \
+        You will be provided with context from which you will begin create your questions \
+        Once you ask a question, you will remember it in subsequent questions \
+        So whenever you get input you wll assess whether it is the response to a previous question you had asked \
+        Most likely it will be,
+        If it is, you will kindly tell the user how right their answer is. \
+        Try not to be direct, simply relate the answer correctness based on what you remember. \
+        if the response is not an answer, you will ask a new question. \
+        To respond to the user, you DO NOT have to use the context ONLY \
+        Use anything from your memory that you have access to to answer the user query. \
+        The context is enclosed in triple backticks (```) \
+        The user response is enclosed in triple single quotes ('''') \
+        
     """
 
-    context = retrieve(query, namespace=namespace)
+    context = retrieve(response, namespace=namespace)
 
     message = f"""
             {prompt_template}
@@ -299,7 +312,7 @@ def answer_question(query, history, namespace):
             ```
             
             ---
-            {query}
+            {response}
             ---
 
     """
