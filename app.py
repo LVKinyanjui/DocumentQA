@@ -1,6 +1,6 @@
 # %%
 import gradio as gr
-from auxiliaries_beta import (
+from auxiliaries import (
     embed_upsert, summarize, ask_question, answer_question
 )
 

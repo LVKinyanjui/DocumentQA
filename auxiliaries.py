@@ -1,5 +1,5 @@
 # %%
-import os, re, uuid, time, json
+import os, re, uuid, time, json, random
 from tqdm import tqdm
 
 from pinecone import Pinecone
@@ -11,7 +11,6 @@ from langchain.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from langchain.chains import ConversationChain
-from langchain.chat_models import ChatGooglePalm
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 
@@ -22,8 +21,11 @@ from router_chains_and_agents import route_user_responses
 with open("secrets/credentials.json", encoding="utf-8") as f:
     keys = json.load(f)
 
-pc = Pinecone(api_key=keys['pinecone_key'])
-genai.configure(api_key=keys['google_key'])
+pinecone_key = keys['pinecone_key']
+google_key = keys['google_key']
+
+pc = Pinecone(api_key=pinecone_key)
+genai.configure(api_key=google_key)
 
 # EMBEDDING MODELS
 
@@ -33,6 +35,8 @@ model = SentenceTransformer(
     'multi-qa-MiniLM-L6-cos-v1',
     device='cpu'
 )
+
+document_texts = []
 
 def summarize(filepath, chunk_size=16000, api_call_limit=20, verbose=True):
     """
@@ -130,6 +134,9 @@ def read_split_pdf(file, chunk_size=256, chunk_overlap=0):
     total_time = end_time - start_time
     print(f"Execution time in seconds: {total_time}")
 
+    global document_texts
+    document_texts = docs
+
     return docs
 
 def clean_filename(pathname):
@@ -193,7 +200,7 @@ def embed_upsert(filepath, verbose=False):
     return ["File embedded and upserted succesfully!", namespace] # Return to multiple gradio components
 
 
-def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
+def retrieve(query, namespace=''):
 
         # Ensure index available (Any)
         indexes = pc.list_indexes()
@@ -233,75 +240,107 @@ def retrieve(query, history, namespace='', temperature=0.0, verbose=False):
         )
         
         context = '\n\n'.join([match['metadata']['text'] for match in res['matches']])
+        return context
 
-        res = route_user_responses(query, context)
-        return res
+def ask_question(query, history, namespace):
+    prompt_template = """
+            Your job is to answer questions from a document \
+            You will be provided with context to help you answer the question. \
+            You will attempt to be as helpful as possible given the context \
+            The context is enclosed in triple backticks (```) \
+            To answer to the user, you DO NOT have to use the context ONLY \
+            Use anything from your memory that you have access to to answer the user query. \
+            the user query is enclosed in triple single quotes ('''') \
+            If you cannot find anything relevant from your memory to answer the user query,
+            explain to the user kindly that you were unable to find anything relevant. \
+            but still attempt to answer the user as best as you can \
+            or explain what lies in the context and how the user query may relate to it.
+    """
 
-        # prompt_template = """
-        #         You are a teacher \
-        #         The human in this case is the student \
+    context = retrieve(query, namespace=namespace)
 
-        #         You start off by creating A SINGLE qustion from a textbook context, 
-        #         enclosed in triple backticks ``` \
-        #         You will either receive a question from the student or a response to your earlier question
-                
-        #         If it is a question you will answer it from your entire memory \
-                
-        #         if it is an answer to a question you remember asking, you will assess it 
-        #             If it is correct, tell them 'correct', plus any additional feedback \
-        #             If wrong, tell them kindly what the right answer is \
-        #         If the context section (usually enclosed in triple backticks ```) is empty say: \
-        #         "No Documents were provided for question answer" \
-                
-        #         The question should be asked simply  in the following format:\
-        #         "
-        #         what is this thing called?
-        #         what does that thing do?
-        #         How do we do this thing
-        #         " etc.
+    message = f"""
+            {prompt_template}
 
-        #         The student responds with text enclosed in triple hyphens ---
+            ```
+            {context}
+            ```
+            
+            ---
+            {query}
+            ---
+
+    """
+
+    # Model with memory
+    llm = ChatGoogleGenerativeAI(
+        google_api_key=google_key,
+        model="gemini-pro",
+        # temperature=0.3, 
+        convert_system_message_to_human=True
+        ) 
+                        
+    conversation_chain = ConversationChain(
+        llm=llm,
+        memory=ConversationBufferWindowMemory(k=5)
+    )
+
+    result = conversation_chain(message)
+
+    return result['response']
 
 
-        #         This is what you will evaluate based on the context
-                
-        #         You are provided with the textbook context and the student response below
-        # """
+def answer_question(response, history, namespace):
+    prompt_template = """
+        Your job is to ask a user questions from given contexts \
+        You will be provided with context from which you will begin create your questions \
+        Once you ask a question, you will remember it in subsequent questions \
+        So whenever you get input you wll assess whether it is the response to a previous question you had asked \
+        Most likely it will be,
+        If it is, you will kindly tell the user whether their answer is right or wrong. \
+        Try not to be direct, simply relate the answer correctness based on what you remember. \
+        if the response is not an answer, you will ask a new question. \
+        To respond to the user, you DO NOT have to use the context ONLY \
+        Use anything from your memory that you have access to to answer the user query. \
+        The context is enclosed in triple backticks (```) \
+        The user response is enclosed in triple single quotes ('''') \
+        
+    """
 
-        # message = f"""
-        #         {prompt_template}
+    # context = retrieve(response, namespace=namespace)
 
-        #         ```
-        #         {context}
-        #         ```
-                
-        #         ---
-        #         {query}
-        #         ---
+    # CHOOSE RANDOWM DOCUMENT FROM TEXTS TO ASK A QUESTION FROM
+    
+    index = random.randint(0, len(document_texts))
+    context = document_texts[index].page_content
 
-        # """
+    message = f"""
+            {prompt_template}
 
-        # # Model with memory
-        # llm = ChatGoogleGenerativeAI(
-        #     google_api_key=os.getenv("PALM_API_KEY"),
-        #     model="gemini-pro",
-        #     # temperature=0.3, 
-        #     convert_system_message_to_human=True
-        #     ) 
-                           
-        # conversation_chain = ConversationChain(
-        #     llm=llm,
-        #     memory=ConversationBufferWindowMemory(k=5)
-        # )
+            ```
+            {context}
+            ```
+            
+            ---
+            {response}
+            ---
 
-        # result = conversation_chain(message)
+    """
 
-        # return result['response']
+    # Model with memory
+    llm = ChatGoogleGenerativeAI(
+        google_api_key=google_key,
+        model="gemini-pro",
+        # temperature=0.3, 
+        convert_system_message_to_human=True
+        ) 
+                        
+    conversation_chain = ConversationChain(
+        llm=llm,
+        memory=ConversationBufferWindowMemory(k=5)
+    )
 
-        # gemini = genai.GenerativeModel('gemini-pro')
-        # response = gemini.generate_content(message, stream=True)
+    result = conversation_chain(message)
 
-        # partial_message = ""
-        # for chunk in response:
-        #     partial_message = partial_message + chunk.text
-        #     yield partial_message
+    return result['response']
+# %%
