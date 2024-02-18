@@ -17,15 +17,10 @@ from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from router_chains_and_agents import route_user_responses
 
 
-# API Keys
-with open("secrets/credentials.json", encoding="utf-8") as f:
-    keys = json.load(f)
+google_key = os.getenv("GOOGLE_API_KEY")
 
-pinecone_key = keys['pinecone_key']
-google_key = keys['google_key']
-
-pc = Pinecone(api_key=pinecone_key)
-genai.configure(api_key=google_key)
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY_MANUEL"))
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # EMBEDDING MODELS
 
@@ -243,18 +238,26 @@ def retrieve(query, namespace=''):
         return context
 
 def ask_question(query, history, namespace):
+    # prompt_template = """
+    #         Your job is to answer questions from a document \
+    #         You will be provided with context to help you answer the question. \
+    #         You will attempt to be as helpful as possible given the context \
+    #         The context is enclosed in triple backticks (```) \
+    #         To answer to the user, you DO NOT have to use the context ONLY \
+    #         Use anything from your memory that you have access to to answer the user query. \
+    #         the user query is enclosed in triple single quotes ('''') \
+    #         If you cannot find anything relevant from your memory to answer the user query,
+    #         explain to the user kindly that you were unable to find anything relevant. \
+    #         but still attempt to answer the user as best as you can \
+    #         or explain what lies in the context and how the user query may relate to it.
+    # """
+
     prompt_template = """
-            Your job is to answer questions from a document \
-            You will be provided with context to help you answer the question. \
-            You will attempt to be as helpful as possible given the context \
-            The context is enclosed in triple backticks (```) \
-            To answer to the user, you DO NOT have to use the context ONLY \
-            Use anything from your memory that you have access to to answer the user query. \
-            the user query is enclosed in triple single quotes ('''') \
-            If you cannot find anything relevant from your memory to answer the user query,
-            explain to the user kindly that you were unable to find anything relevant. \
-            but still attempt to answer the user as best as you can \
-            or explain what lies in the context and how the user query may relate to it.
+    Your job is to summarize results from a provided context. \
+    The context is enclosed in triple backticks (```) \
+    You will try to present the most relevant information the context \
+    while being as helpful as possible. \
+    
     """
 
     context = retrieve(query, namespace=namespace)
@@ -265,10 +268,6 @@ def ask_question(query, history, namespace):
             ```
             {context}
             ```
-            
-            ---
-            {query}
-            ---
 
     """
 
