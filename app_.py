@@ -32,7 +32,7 @@ def split_text(text, chunk_size=384):
 def get_embdeddings(text):
     chunks = split_text(text)
     embeddings = embed(chunks)
-    return '\n\n'.join([json.dumps(vect) for vect in embeddings])
+    return json.dumps(embeddings[0])
 
 
 with gr.Blocks() as app:

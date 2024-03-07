@@ -50,17 +50,20 @@ async def async_embed(texts: list[str]):
 
 def embed(texts):
     """A wrapper for the asynchronous operation. Runs the coroutines and returns actual embeddings"""
-    return asyncio.run(async_embed(texts))
-
-
-if __name__ == '__main__':
     start_time = time.time()
-
-    sentences = ['Hello World', 'This is a sentence', 'This is another sentence']
-    results = asyncio.run(async_embed(sentences))
-    print(results)
+    
+    results = asyncio.run(async_embed(texts))
 
     print("--- %s seconds ---" % (time.time() - start_time))
+
+    return results
+
+if __name__ == '__main__':
+    
+    sentences = ['Hello World', 'This is a sentence', 'This is another sentence']
+    embed(sentences)
+
+    
 
    
 
