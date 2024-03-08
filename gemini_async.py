@@ -34,7 +34,7 @@ async def async_embed(texts: list[str]):
     Args:
         texts: The texts to be processed.
     Returns:
-        embeddings: The embeddings of the texts.
+        coroutines: The coroutines to be executed.
     """
 
     url = 'https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent'
@@ -44,19 +44,27 @@ async def async_embed(texts: list[str]):
         for sentence in texts:
             tasks.append(asyncio.ensure_future(get_http_response(session, url, sentence)))
 
-        embeddings = await asyncio.gather(*tasks)
+        coroutines = await asyncio.gather(*tasks)
 
-        return embeddings
+        return coroutines
 
 def embed(texts):
-    """A wrapper for the asynchronous operation. Runs the coroutines and returns actual embeddings"""
+    """
+    A wrapper for the asynchronous operation. Runs the coroutines and returns actual embeddings
+    Args:
+        texts: The texts to be processed.
+    Returns:
+        results: The embeddings as returned from the http request.
+        time_taken: The time taken to process the texts.
+    """
     start_time = time.time()
     
     results = asyncio.run(async_embed(texts))
+    time_taken = round(time.time() - start_time, 1)
 
-    print("--- %s seconds ---" % (time.time() - start_time))
+    print("--- %s seconds ---" % (time_taken))
 
-    return results
+    return results, f"Executed in {str(time_taken)} seconds"
 
 if __name__ == '__main__':
     

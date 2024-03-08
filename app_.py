@@ -31,19 +31,21 @@ def split_text(text, chunk_size=384):
 # APIs
 def get_embdeddings(text):
     chunks = split_text(text)
-    embeddings = embed(chunks)
-    return json.dumps(embeddings[0])
+    embeddings, time_taken = embed(chunks)
+    snippet = json.dumps(embeddings[0])
+    return snippet, time_taken
 
 
 with gr.Blocks() as app:
 
     # Components
     file_input = gr.File()
+    duration_output = gr.Markdown()
     document_output = gr.Markdown()
     retrieval_output = gr.Markdown()
 
     # Event Listeners
     file_input.change(fn=read_documents, inputs=file_input, outputs=document_output)
-    document_output.change(fn=get_embdeddings, inputs=document_output, outputs=retrieval_output)
+    document_output.change(fn=get_embdeddings, inputs=document_output, outputs=[retrieval_output, duration_output])
 
 app.launch()
