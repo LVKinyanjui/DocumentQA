@@ -64,7 +64,7 @@ def embed(texts):
 
     print("--- %s seconds ---" % (time_taken))
 
-    return results, f"Executed in {str(time_taken)} seconds"
+    return results, f"Execution time {str(time_taken)} seconds"
 
 if __name__ == '__main__':
     
