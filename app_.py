@@ -48,11 +48,12 @@ with gr.Blocks() as demo:   #Named demo to allow easy debug mode with $gradio ap
     file_input = gr.File()
     file_status = gr.Markdown(visible=False)
     duration_output = gr.Markdown()
-    document_output = gr.Textbox(label="Document Contents", lines=4)
-    retrieval_output = gr.Textbox(label="Embeddings Snippet", lines=2)
+    with gr.Row(equal_height=True):
+        document_output = gr.Textbox(label="Document Contents")
+        embedding_output = gr.Textbox(label="Embeddings")
 
     # Event Listeners
     file_input.change(fn=read_documents, inputs=file_input, outputs=[document_output, file_status])
-    document_output.change(fn=get_embdeddings, inputs=[document_output, file_status], outputs=[retrieval_output, duration_output])
+    document_output.change(fn=get_embdeddings, inputs=[document_output, file_status], outputs=[embedding_output, duration_output])
 
 demo.launch()
