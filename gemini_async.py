@@ -51,7 +51,7 @@ async def async_embed(texts: list[str]):
 
         return coroutines
 
-def embed(texts):
+def embed(texts: str):
     """
     A wrapper for the asynchronous operation. Runs the coroutines and returns actual embeddings
     Args:

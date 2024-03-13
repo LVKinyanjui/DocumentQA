@@ -5,7 +5,7 @@ from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from gemini_async import embed
-from pinecone_client import batch_upsert
+from pinecone_client import batch_upsert, retrieve, detect_namespace
 
 # DOCUMENT IO
 def read_documents(filepath):
@@ -40,19 +40,24 @@ def split_text(text, chunk_size=384):
 
     
 def get_upsert_embeddings(text, exit_status, filepath=None):
-    if exit_status == '0':      # Everything's fine
-        chunks = split_text(text)
-        embeddings, time_taken = embed(chunks)
-        snippet = json.dumps(embeddings[0])
+    if exit_status == '0':      # Filepath is not none: document uploaded in file component
 
-        if filepath is not None:
-            namespace = clean_filename(filepath)
-        else:
+        if filepath is None:
             raise ValueError("Filepath is None. Cannot get value from file input component.")
+        
+        namespace = clean_filename(filepath)     
+        namespace_exists = detect_namespace(namespace)
 
-        upsert_results = batch_upsert(chunks, embeddings, namespace)
+        if not namespace_exists:
+            chunks = split_text(text)
+            embeddings, time_taken = embed(chunks)
+            snippet = json.dumps(embeddings[0])
+            upsert_results = batch_upsert(chunks, embeddings, namespace)
 
-        return snippet, time_taken, str(upsert_results)
+            return snippet, time_taken, str(upsert_results)
+        
+        else:
+            return str(None), "Execution time 0 seconds", "File already Present in Database. Ask Away!"
     else:
         return "No embeddings to display", "Execution time 0 seconds", str(None)
 
@@ -60,15 +65,29 @@ def get_upsert_embeddings(text, exit_status, filepath=None):
 def visible_component(input_text):
     return gr.update(visible=True)
 
+
+def chatbot_answer(query, history, namespace):
+    
+    query_vector, _ = embed(query)          # Unpack, otherwise you get:
+                                                # TypeError: tuple indices must be integers or slices, not str
+
+    context = retrieve(query_vector, namespace)
+
+    return context
+
+
 with gr.Blocks() as demo:   #Named demo to allow easy debug mode with $gradio app.py
 
     # Components
     file_input = gr.File()
     file_status = gr.Markdown(visible=False)
+    file_namespace= gr.Textbox(visible=False)
 
     with gr.Column(visible=False) as query_input:
-        query_box = gr.Textbox(label="Query Text")
-        query_button = gr.Button("Query")
+        # query_box = gr.Textbox(label="Query Text")
+        # query_button = gr.Button("Query")
+
+        gr.ChatInterface(fn=chatbot_answer, additional_inputs=[file_namespace])
 
     with gr.Row(equal_height=True):
         duration_output = gr.Markdown()
@@ -80,6 +99,7 @@ with gr.Blocks() as demo:   #Named demo to allow easy debug mode with $gradio ap
 
     # Event Listeners
     file_input.change(fn=read_documents, inputs=file_input, outputs=[document_output, file_status])
+    file_input.change(fn=clean_filename, inputs=file_input, outputs=file_namespace)
     document_output.change(fn=get_upsert_embeddings, inputs=[document_output, file_status, file_input], outputs=[embedding_output, duration_output, upsert_output])
     upsert_output.change(fn=visible_component, inputs=[upsert_output], outputs=[query_input])
 
