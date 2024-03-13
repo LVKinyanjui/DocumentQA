@@ -38,16 +38,6 @@ def split_text(text, chunk_size=384):
     text_splitter = RecursiveCharacterTextSplitter('\n\n', chunk_size=chunk_size, chunk_overlap=0)
     return text_splitter.split_text(text)
 
-
-# APIs
-def get_embdeddings(text, exit_status):
-    if exit_status == '0':      # Everything's fine
-        chunks = split_text(text)
-        embeddings, time_taken = embed(chunks)
-        snippet = json.dumps(embeddings[0])
-        return snippet, time_taken
-    else:
-        return "No embeddings to display", "Execution time 0 seconds"
     
 def get_upsert_embeddings(text, exit_status, filepath=None):
     if exit_status == '0':      # Everything's fine
@@ -67,11 +57,18 @@ def get_upsert_embeddings(text, exit_status, filepath=None):
         return "No embeddings to display", "Execution time 0 seconds", str(None)
 
 
+def visible_component(input_text):
+    return gr.update(visible=True)
+
 with gr.Blocks() as demo:   #Named demo to allow easy debug mode with $gradio app.py
 
     # Components
     file_input = gr.File()
     file_status = gr.Markdown(visible=False)
+
+    with gr.Column(visible=False) as query_input:
+        query_box = gr.Textbox(label="Query Text")
+        query_button = gr.Button("Query")
 
     with gr.Row(equal_height=True):
         duration_output = gr.Markdown()
@@ -83,7 +80,8 @@ with gr.Blocks() as demo:   #Named demo to allow easy debug mode with $gradio ap
 
     # Event Listeners
     file_input.change(fn=read_documents, inputs=file_input, outputs=[document_output, file_status])
-    # document_output.change(fn=get_embdeddings, inputs=[document_output, file_status], outputs=[embedding_output, duration_output])
     document_output.change(fn=get_upsert_embeddings, inputs=[document_output, file_status, file_input], outputs=[embedding_output, duration_output, upsert_output])
+    upsert_output.change(fn=visible_component, inputs=[upsert_output], outputs=[query_input])
 
+    # gr.update(query_input, visible=True)
 demo.launch()
