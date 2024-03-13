@@ -24,9 +24,12 @@ async def get_http_response(session, url, sentence):
                     json=data,
                     params={'key': api_key}) as resp:
         
-        return await resp.json()       # Ensure you await, otherwise it raises
+        embeddings = await resp.json()       # Ensure you await, otherwise it raises
                                         # RuntimeWarning: coroutine 'ClientResponse.text' was never awaited
-
+        return {
+            "embeddings": embeddings,
+            "text_metadata": sentence
+        }
 
 async def async_embed(texts: list[str]):
     """
@@ -69,7 +72,7 @@ def embed(texts):
 if __name__ == '__main__':
     
     sentences = ['Hello World', 'This is a sentence', 'This is another sentence']
-    embed(sentences)
+    print(embed(sentences))
 
     
 
