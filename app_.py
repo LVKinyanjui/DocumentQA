@@ -2,9 +2,11 @@ import gradio as gr
 
 import os, json, re
 from pypdf import PdfReader
+from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from gemini_async import embed
+from gemini import generate_content
 from pinecone_client import batch_upsert, retrieve, detect_namespace
 
 # DOCUMENT IO
@@ -15,12 +17,10 @@ def read_documents(filepath):
         return "Please select a file", exit_status
     
     try:
-        reader = PdfReader("data/E1. ExngTextOnly.pdf")
-        pdf_texts = [p.extract_text().strip() for p in reader.pages]
-
-        # Filter the empty strings
-        pdf_texts = [text for text in pdf_texts if text]
-
+        loader = PyMuPDFLoader(filepath)
+        documents = loader.load()
+        pdf_texts = [document.page_content for document in documents]
+        
         exit_status = '0'
         return '\n\n'.join(pdf_texts), exit_status
 
@@ -53,7 +53,8 @@ def get_upsert_embeddings(text, exit_status, filepath=None):
             chunks = split_text(text)
             embeddings, time_taken = embed(chunks)
             snippet = json.dumps(embeddings[0])
-            upsert_results = batch_upsert(chunks, embeddings, namespace)
+            upsert_results = batch_upsert(dense_vectors=embeddings, 
+                                          namespace=namespace)
 
             return snippet, time_taken, str(upsert_results)
         
@@ -69,12 +70,25 @@ def visible_component(input_text):
 
 def chatbot_answer(query, history, namespace):
     
-    query_vector, _ = embed(query)          # Unpack, otherwise you get:
-                                                # TypeError: tuple indices must be integers or slices, not str
-
+    query_vector, _ = embed(query)
     context = retrieve(query_vector, namespace)
 
-    return context
+    prompt = f"""I will provide a query question, retrieved text passages, and chat history. 
+        Please read through the retrieved texts and chat history as described in 'Context'.
+        Understand the context and the query.
+        Then, generate a response that answers the original query question in a sensible and coherent manner based on the retrieved texts. 
+        If you find that the 'Context' is not relevant as per your judgement, simply summarize what you find. Okay?
+        
+        You are quite capable of this task and I am sure you will be able to generate a worthwhile response.
+        Please do your best as this is quite important for the success of this project. 
+
+        Query: {query}
+        
+        Context: {context}
+
+        """
+    
+    return generate_content(prompt)
 
 
 with gr.Blocks() as demo:   #Named demo to allow easy debug mode with $gradio app.py
