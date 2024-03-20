@@ -24,25 +24,18 @@ def batch_upsert(dense_vectors, namespace, batch_size=100):
 
     index = get_index()
 
-    # Check whether document already exists in vector store
-    if detect_namespace(namespace):
-         return "File already Present in Database. Ask Away!"
-
-
     records = []
     for dense_vector in dense_vectors:
         
-        records = [{
+        record = {
             'id': str(uuid.uuid4().int),
             'values': dense_vector['embeddings']['embedding']['values'],
-            # 'sparse_values': sparse_vector,
             'metadata': {
                 'text': dense_vector['text_metadata']
             }
-        }]
+        }
 
-        ## Synchronous upsert: Slowwer
-        # index.upsert(records, namespace=namespace)
+        records.append(record)
 
     # Asynchronous upsert: Faster
     def chunker(seq, batch_size):
