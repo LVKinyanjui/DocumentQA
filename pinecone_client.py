@@ -20,7 +20,7 @@ def detect_namespace(namespace):
     return namespace in stats['namespaces'].keys()
 
 
-def batch_upsert(texts, dense_vectors, namespace, batch_size=100):
+def batch_upsert(dense_vectors, namespace, batch_size=100):
 
     index = get_index()
 
@@ -50,7 +50,7 @@ def batch_upsert(texts, dense_vectors, namespace, batch_size=100):
 
     async_results = [
     index.upsert(vectors=chunk, namespace=namespace, async_req=True)
-    for chunk in chunker(records, batch_size=100)
+    for chunk in chunker(records, batch_size=batch_size)
     ]
 
     return "File uploaded to Database"

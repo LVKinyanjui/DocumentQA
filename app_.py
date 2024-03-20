@@ -1,7 +1,7 @@
 import gradio as gr
 
 import os, json, re
-from langchain_community.document_loaders import PyMuPDFLoader
+from pypdf import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from gemini_async import embed
@@ -15,13 +15,14 @@ def read_documents(filepath):
         return "Please select a file", exit_status
     
     try:
-        loader = PyMuPDFLoader(filepath)
-        documents = loader.load()
-        
-        pages = [page.page_content for page in documents]
+        reader = PdfReader("data/E1. ExngTextOnly.pdf")
+        pdf_texts = [p.extract_text().strip() for p in reader.pages]
+
+        # Filter the empty strings
+        pdf_texts = [text for text in pdf_texts if text]
 
         exit_status = '0'
-        return '\n\n'.join(pages), exit_status
+        return '\n\n'.join(pdf_texts), exit_status
 
     except Exception as e:
         raise ValueError(f"Error loading file: {e}")
