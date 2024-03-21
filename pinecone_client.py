@@ -77,9 +77,7 @@ def retrieve(query_vector, namespace, top_k=20):
     for document in documents:
         unique_documents.add(document)
 
-    unique_documents = list(unique_documents)
-
-    return '\n\n'.join(unique_documents)
+    return list(unique_documents)
 
 
 if __name__ == "__main__":
@@ -90,4 +88,6 @@ if __name__ == "__main__":
     # Query a document
     query_vector, _ = embed("What is life?")
 
-    print(retrieve(query_vector, namespace))
+    res = retrieve(query_vector, namespace)
+    print(res)
+    print(type(res))

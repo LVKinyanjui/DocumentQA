@@ -7,6 +7,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from gemini_async import embed
 from gemini import generate_content
+from rag_utils import rank_documents_relevance
 from pinecone_client import batch_upsert, retrieve, detect_namespace
 
 # DOCUMENT IO
@@ -73,7 +74,11 @@ def chatbot_answer(original_query, history, namespace):
     joint_query = f"{original_query} {hypothetical_answer}"
 
     query_vector, _ = embed(joint_query)
-    context = retrieve(query_vector, namespace)
+    contexts = retrieve(query_vector, namespace)
+
+    ## Cross encoder reranking
+    reranked_context = rank_documents_relevance(contexts, original_query)
+    reranked_context = '\n\n'.join(reranked_context)
 
     prompt = f"""
         You are a helpfull user assistance
@@ -87,7 +92,7 @@ def chatbot_answer(original_query, history, namespace):
 
         Query: {original_query}
         
-        Context: {context}
+        Context: {reranked_context}
 
         """
     
