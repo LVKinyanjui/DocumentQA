@@ -1,5 +1,7 @@
 from pinecone import Pinecone
-import os, uuid, tqdm
+import os, uuid
+
+from gemini_async import embed
 
 api_key = os.getenv("PINECONE_API_KEY")
 
@@ -13,11 +15,17 @@ def get_index():
     return index
 
 
-def detect_namespace(namespace):
+def get_namespaces():
 
     index = get_index()
     stats = index.describe_index_stats()
-    return namespace in stats['namespaces'].keys()
+    namespace_keys = stats['namespaces'].keys()
+    return list(namespace_keys)
+
+
+def detect_namespace(namespace):
+
+    return namespace in get_namespaces()
 
 
 def batch_upsert(dense_vectors, namespace, batch_size=100):
@@ -49,15 +57,37 @@ def batch_upsert(dense_vectors, namespace, batch_size=100):
     return "File uploaded to Database"
 
 
-def retrieve(query_vector, namespace):
+def retrieve(query_vector, namespace, top_k=20):
 
     index = get_index()
 
     res = index.query(
-        top_k=10,
+        top_k=top_k,
         vector=query_vector[0]['embeddings']['embedding']['values'],
         include_metadata=True,
         namespace=namespace
     )
     
-    return '\n\n'.join([match['metadata']['text'] for match in res['matches']])
+    # return '\n\n'.join([match['metadata']['text'] for match in res['matches']])
+
+    documents = [match['metadata']['text'] for match in res['matches']]
+
+    # Remove duplicates the retrieved documents
+    unique_documents = set()
+    for document in documents:
+        unique_documents.add(document)
+
+    unique_documents = list(unique_documents)
+
+    return '\n\n'.join(unique_documents)
+
+
+if __name__ == "__main__":
+
+    # Pick a random namespace to test
+    namespace = get_namespaces()[0]
+
+    # Query a document
+    query_vector, _ = embed("What is life?")
+
+    print(retrieve(query_vector, namespace))

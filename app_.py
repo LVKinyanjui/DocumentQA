@@ -65,9 +65,6 @@ def get_upsert_embeddings(text, exit_status, filepath=None, chunk_size=384):
         return "No embeddings to display", "Execution time 0 seconds", str(None)
 
 
-def visible_component(input_text):
-    return gr.update(visible=True)
-
 
 def chatbot_answer(original_query, history, namespace):
     
@@ -96,6 +93,14 @@ def chatbot_answer(original_query, history, namespace):
     
     ## Final generation
     return generate_content(prompt)
+
+
+def visible_component(input_text):
+    return gr.update(visible=True)
+
+
+
+## GRADIO APP
 
 
 
