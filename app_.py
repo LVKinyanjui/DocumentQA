@@ -36,11 +36,12 @@ def clean_filename(pathname):
 
 
 def split_text(text, chunk_size=384):
-    text_splitter = RecursiveCharacterTextSplitter('\n\n', chunk_size=chunk_size, chunk_overlap=0)
+    separators = ['\n\n# ', '\n\n## ', '\n\n### ', '\n\n', '\n', '. ', ', ', '; ', ': ', '? ', '! ']
+    text_splitter = RecursiveCharacterTextSplitter(separators, chunk_size=chunk_size, chunk_overlap=0)
     return text_splitter.split_text(text)
 
     
-def get_upsert_embeddings(text, exit_status, filepath=None):
+def get_upsert_embeddings(text, exit_status, filepath=None, chunk_size=384):
     if exit_status == '0':      # Filepath is not none: document uploaded in file component
 
         if filepath is None:
@@ -50,7 +51,7 @@ def get_upsert_embeddings(text, exit_status, filepath=None):
         namespace_exists = detect_namespace(namespace)
 
         if not namespace_exists:
-            chunks = split_text(text)
+            chunks = split_text(text, chunk_size=chunk_size)
             embeddings, time_taken = embed(chunks)
             snippet = json.dumps(embeddings[0])
             upsert_results = batch_upsert(dense_vectors=embeddings, 
@@ -68,27 +69,34 @@ def visible_component(input_text):
     return gr.update(visible=True)
 
 
-def chatbot_answer(query, history, namespace):
+def chatbot_answer(original_query, history, namespace):
     
-    query_vector, _ = embed(query)
+    # Expand with generation
+    hypothetical_answer = generate_content(original_query)
+    joint_query = f"{original_query} {hypothetical_answer}"
+
+    query_vector, _ = embed(joint_query)
     context = retrieve(query_vector, namespace)
 
-    prompt = f"""I will provide a query question, retrieved text passages, and chat history. 
-        Please read through the retrieved texts and chat history as described in 'Context'.
-        Understand the context and the query.
-        Then, generate a response that answers the original query question in a sensible and coherent manner based on the retrieved texts. 
-        If you find that the 'Context' is not relevant as per your judgement, simply summarize what you find. Okay?
+    prompt = f"""
+        You are a helpfull user assistance
+        Given a user Query, summarize the information Context and provide an accurate response.
         
+        Do not format your response unnecesarily such as with unnecessary titlea.
+        Simply respond to the user's question as if you were having a conversation.
+
         You are quite capable of this task and I am sure you will be able to generate a worthwhile response.
         Please do your best as this is quite important for the success of this project. 
 
-        Query: {query}
+        Query: {original_query}
         
         Context: {context}
 
         """
     
+    ## Final generation
     return generate_content(prompt)
+
 
 
 with gr.Blocks() as demo:   #Named demo to allow easy debug mode with $gradio app.py
@@ -104,13 +112,15 @@ with gr.Blocks() as demo:   #Named demo to allow easy debug mode with $gradio ap
 
         gr.ChatInterface(fn=chatbot_answer, additional_inputs=[file_namespace])
 
+
     with gr.Row(equal_height=True):
         duration_output = gr.Markdown()
         upsert_output = gr.Markdown()
 
-    with gr.Row(equal_height=True):
-        document_output = gr.Textbox(label="Document Contents")
-        embedding_output = gr.Textbox(label="Embeddings")
+    with gr.Accordion("See Document Details", open=False):
+        with gr.Row(equal_height=True):
+            document_output = gr.Textbox(label="Document Contents")
+            embedding_output = gr.Textbox(label="Embeddings")
 
     # Event Listeners
     file_input.change(fn=read_documents, inputs=file_input, outputs=[document_output, file_status])
