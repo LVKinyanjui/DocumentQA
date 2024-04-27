@@ -98,12 +98,10 @@ Follow these steps to obtain your Google Vertex API keys:
 3. Copy the generated API key.
 
 ### Secrets
-In the secrets folder in the credentials.json file , paste each API key next to the service like so:
-``` {json}
-{
-    "pinecone_key": "paste pinecone console key here",
-    "google_key": "paste google cloud key here"
-}
+Set your api keys as environmental variables on your system undet these names:
+```
+GOOGLE_API_KEY
+PINECONE_API_KEY
 ```
 
 ## Running the Application
