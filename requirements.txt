@@ -78,7 +78,7 @@ multiprocess==0.70.15
 mypy-extensions==1.0.0
 nest-asyncio==1.5.9
 networkx==3.2.1
-nltk==3.8.1
+nltk==3.8.2
 numpy==1.26.3
 openai==1.8.0
 orjson==3.9.10
