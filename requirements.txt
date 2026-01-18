@@ -27,7 +27,7 @@ exceptiongroup==1.2.0
 executing==2.0.1
 fastapi==0.109.0
 ffmpy==0.3.1
-filelock==3.13.1
+filelock==3.20.3
 fonttools==4.47.2
 frozenlist==1.4.1
 fsspec==2023.10.0
@@ -105,7 +105,7 @@ Pygments==2.17.2
 PyMuPDF==1.23.15
 PyMuPDFb==1.23.9
 pyparsing==3.1.1
-pypdf==3.17.4
+pypdf==6.6.0
 python-dateutil==2.8.2
 python-dotenv==1.0.1
 python-multipart==0.0.6
